@@ -1,0 +1,107 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Project {
+  id               String          @id @default(uuid())
+  name             String
+  shortDescription String
+  techStack        String?
+  primaryTools     String          // "Cursor" | "Claude Code" | "Claude Web" | "Both"
+  repoLink         String?
+  prdFileUrl       String?
+  prdRawText       String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  promptSessions   PromptSession[]
+  prdSections      PRDSection[]
+  buildSteps       BuildStep[]
+}
+
+model PromptSession {
+  id               String   @id @default(uuid())
+  projectId        String
+  rawDescription   String
+  taskType         String   // "New feature" | "Bug fix / debug" | "Refactor / cleanup" | "Write tests" | "Explain code"
+  generatedPrompt  String
+  title            String
+  createdAt        DateTime @default(now())
+
+  project          Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model PRDSection {
+  id               String      @id @default(uuid())
+  projectId        String
+  title            String
+  orderIndex       Int
+  summary          String
+  rawExcerpt       String
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  project          Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  buildSteps       BuildStep[]
+}
+
+model BuildStep {
+  id               String      @id @default(uuid())
+  projectId        String
+  prdSectionId     String?
+  orderIndex       Int
+  title            String
+  description      String
+  todoMarkdown     String
+  cursorPrompt     String
+  status           String      @default("Not started") // "Not started" | "In progress" | "Done"
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  project          Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  prdSection       PRDSection? @relation(fields: [prdSectionId], references: [id], onDelete: SetNull)
+}
+
+model PromptUsage {
+  id               String   @id @default(uuid())
+  projectId        String?
+  sessionId        String?
+  model            String   // "gpt-4-turbo-preview" | "gpt-4o-mini" | "mock"
+  promptMode       String   @default("compact") // "compact" | "verbose"
+  inputTokens      Int
+  outputTokens     Int
+  totalTokens      Int
+  estimatedCost    Float    // In USD
+  success          Boolean  @default(true)
+  errorMessage     String?
+  createdAt        DateTime @default(now())
+}
+
+model UserSettings {
+  id               String   @id @default("default")
+  defaultModel     String   @default("gpt-4o-mini") // "gpt-4-turbo-preview" | "gpt-4o-mini" | "mock"
+  defaultMode      String   @default("compact") // "compact" | "verbose"
+  updatedAt        DateTime @updatedAt
+}
+
+model PromptTemplate {
+  id               String   @id @default(uuid())
+  name             String
+  description      String
+  taskType         String   // "New feature" | "Bug fix / debug" | "Refactor / cleanup" | "Write tests" | "Explain code"
+  templateText     String   // The template with placeholders
+  category         String   // "Web Dev" | "Backend" | "Testing" | "General" | "Database"
+  isBuiltIn        Boolean  @default(false)
+  usageCount       Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
